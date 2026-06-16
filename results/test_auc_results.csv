@@ -1,0 +1,16 @@
+Pathology,AUC
+Atelectasis,0.7184
+Cardiomegaly,0.8762
+Effusion,0.8072
+Infiltration,0.6913
+Mass,0.7882
+Nodule,0.7258
+Pneumonia,0.702
+Pneumothorax,0.8479
+Consolidation,0.7285
+Edema,0.8244
+Emphysema,0.8881
+Fibrosis,0.8095
+Pleural_Thickening,0.748
+Hernia,0.9095
+Mean,0.7904

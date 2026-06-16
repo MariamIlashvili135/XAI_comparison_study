@@ -1,0 +1,10 @@
+pathology,n_images,pointing_game,mean_iou
+Atelectasis,180.0,0.0944,0.034
+Cardiomegaly,146.0,0.8767,0.3228
+Effusion,153.0,0.2745,0.0858
+Infiltration,123.0,0.3171,0.1195
+Mass,85.0,0.0941,0.0439
+Nodule,79.0,0.0253,0.0062
+Pneumonia,120.0,0.4,0.1255
+Pneumothorax,98.0,0.0714,0.0581
+MEAN,123.0,0.2691875,0.09947500000000001
