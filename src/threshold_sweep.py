@@ -256,7 +256,10 @@ def main():
     bbox_df = load_bbox_df(DATA_ROOT)
     bbox_df = bbox_df[bbox_df["Image Index"].isin(image_index.keys())]
     print(f"Bounding box records: {len(bbox_df)}")
-
+    print("\n[DEBUG] Dataset loaded")
+    print("[DEBUG] bbox_df size:", len(bbox_df))
+    print("Image index size:", len(image_index))
+    print("Matched bbox rows:", len(bbox_df))
     # Collect attribution maps for each method
     print("\nCollecting Grad-CAM maps...")
     gradcam_maps = collect_gradcam_maps(model, bbox_df, image_index, device)
@@ -266,9 +269,17 @@ def main():
 
     print("\nCollecting LIME maps (this takes ~1.5 hours)...")
     lime_maps = collect_lime_maps(model, bbox_df, image_index, device)
+    print("\n[DEBUG] Attribution collection finished")
 
+    print("[DEBUG] GradCAM maps:", len(gradcam_maps))
+    print("[DEBUG] SHAP maps:", len(shap_maps))
+    print("[DEBUG] LIME maps:", len(lime_maps))
     # Sweep thresholds
     print("\nSweeping thresholds...")
+    print("\n[DEBUG] Starting threshold sweep")
+    print("[DEBUG] GradCAM sample:", gradcam_maps[0] if len(gradcam_maps) > 0 else "EMPTY")
+    print("[DEBUG] SHAP sample:", shap_maps[0] if len(shap_maps) > 0 else "EMPTY")
+    print("[DEBUG] LIME sample:", lime_maps[0] if len(lime_maps) > 0 else "EMPTY")
     results = {
         "Grad-CAM": sweep_thresholds(gradcam_maps, THRESHOLDS),
         "LIME":     sweep_thresholds(lime_maps,     THRESHOLDS),
@@ -283,7 +294,8 @@ def main():
     df_out = pd.DataFrame(rows)
     df_out.to_csv(RESULTS_DIR / "threshold_sweep.csv", index=False)
     print(f"Saved -> {RESULTS_DIR / 'threshold_sweep.csv'}")
-
+    print("\n[DEBUG] Rows prepared for CSV:", len(rows))
+    print("[DEBUG] First row example:", rows[0] if len(rows) > 0 else "EMPTY")
     # Print table
     print("\n" + "=" * 55)
     print("IoU Threshold Sensitivity Results")
