@@ -111,7 +111,11 @@ def compute_iou(mask, x1, y1, x2, y2):
 def save_example(img_rgb, attr_map, x1, y1, x2, y2, out_path):
     a = attr_map.copy()
     a = (a - a.min()) / (a.max() - a.min() + 1e-8)
-    overlay = plt.cm.RdBu_r(a)[:, :, :3]
+    # Blend SHAP heatmap on top of original X-ray so anatomy stays visible
+    img_float = img_rgb.astype(np.float32) / 255.0
+    heatmap = plt.cm.RdBu_r(a)[:, :, :3]
+    overlay = img_float * 0.5 + heatmap * 0.5
+    overlay = np.clip(overlay, 0, 1)
     overlay[y1:y2, x1:x1+2] = [1, 1, 0]
     overlay[y1:y2, x2:x2+2] = [1, 1, 0]
     overlay[y1:y1+2, x1:x2] = [1, 1, 0]

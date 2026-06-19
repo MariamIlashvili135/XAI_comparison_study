@@ -147,7 +147,11 @@ def save_example(img_rgb, explanation, class_idx, x1, y1, x2, y2,
         num_features=num_features,
         hide_rest=False,
     )
-    overlay = mark_boundaries(temp / 255.0, mask)
+    # Blend LIME mask on top of original X-ray so the anatomy stays visible
+    img_float = img_rgb.astype(np.float32) / 255.0
+    highlighted = img_float.copy()
+    highlighted[mask == 1] = highlighted[mask == 1] * 0.5 + np.array([0, 0.8, 0]) * 0.5
+    overlay = mark_boundaries(highlighted, mask)
 
     # Draw GT box
     overlay_copy = overlay.copy()
