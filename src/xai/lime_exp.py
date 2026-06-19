@@ -12,9 +12,6 @@ Outputs:
   results/lime_summary.csv       per-pathology mean scores  (thesis Table 3)
   results/lime_examples/         explanation overlay images for thesis figures
 
-Note: LIME perturbs each image ~1000 times, so expect ~1-2 hours for 861 images.
-      A progress bar shows estimated time remaining.
-
 Run (from D:\\thesis\\src\\xai):
     python lime_exp.py
 """

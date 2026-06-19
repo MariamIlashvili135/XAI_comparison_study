@@ -4,8 +4,8 @@ Evaluates the trained DenseNet-121 checkpoint on the official held-out test set.
 
 Produces:
   - Printed per-class AUC table in the terminal
-  - results/test_auc_results.csv  (paste into your thesis)
-  - results/auc_chart.png         (bar chart for your thesis figures)
+  - results/test_auc_results.csv
+  - results/auc_chart.png
 
 Run:
     python evaluate.py

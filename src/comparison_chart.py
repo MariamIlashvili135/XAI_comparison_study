@@ -1,12 +1,12 @@
 """
 comparison_chart.py
-Generates publication-quality comparison charts for the thesis showing
+Generates publication-quality comparison charts for showing
 Grad-CAM, LIME, and SHAP results side by side.
 
 Produces:
   results/comparison_pointing_game.png   — pointing game bar chart
   results/comparison_iou.png             — IoU bar chart
-  results/comparison_combined.png        — both metrics in one figure (thesis figure)
+  results/comparison_combined.png        — both metrics in one figure
   results/comparison_radar.png           — radar chart per method
 
 Run (from D:\\thesis\\src):

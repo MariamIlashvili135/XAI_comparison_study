@@ -5,9 +5,6 @@ Uses Captum's GradientShap instead of the shap library directly.
 GradientShap is mathematically equivalent to SHAP's GradientExplainer
 and is fully compatible with DenseNet-121's architecture.
 
-In your thesis this is correctly cited as "SHAP (GradientSHAP variant)"
-which is standard practice in XAI literature on medical imaging.
-
 Outputs:
   results/shap_metrics.csv
   results/shap_summary.csv      (thesis Table 4)

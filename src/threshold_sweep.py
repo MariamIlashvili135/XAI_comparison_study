@@ -2,14 +2,9 @@
 threshold_sweep.py
 Runs IoU at multiple thresholds for all three XAI methods and produces:
   - results/threshold_sweep.csv       full results table
-  - results/threshold_sweep.png       line chart for thesis
+  - results/threshold_sweep.png       line chart
 
-This does NOT rerun Grad-CAM, LIME, or SHAP — it reads the per-image
-metrics CSVs already saved and recomputes IoU at different thresholds
-using the stored attribution maps.
-
-Wait — actually we need to recompute from raw attributions.
-Instead this script re-reads the per-image CSV scores and applies
+This script re-reads the per-image CSV scores and applies
 a statistical approach: it sweeps threshold by rerunning CAM on
 the bbox subset at each threshold level.
 

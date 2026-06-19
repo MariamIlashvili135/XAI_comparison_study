@@ -8,8 +8,7 @@ Tuned for an RTX 3050 Ti Laptop GPU (4 GB VRAM):
 
 Outputs the best checkpoint (by mean validation AUC) to checkpoints/.
 
-Run:  (with your venv activated)
-    python train.py
+Run:  python train.py
 """
 
 import random
@@ -31,10 +30,10 @@ from dataset import (
 # ============================ CONFIG — EDIT THIS ============================
 # Point this at the folder that contains Data_Entry_2017.csv, the split .txt
 # files, and the image folders. Use a raw string (r"...") on Windows.
-DATA_ROOT = r"D:\archive"          # <-- EDIT ME
+DATA_ROOT = r"D:\archive"
 
-BATCH_SIZE = 16     # 4GB VRAM: start at 16. If you see "CUDA out of memory", set 8.
-NUM_WORKERS = 6     # you have 20 logical cores; if Windows acts up, set to 0 or 2.
+BATCH_SIZE = 16
+NUM_WORKERS = 6
 EPOCHS = 20
 LR = 1e-4
 VAL_FRACTION = 0.1  # fraction of train_val patients held out for validation
