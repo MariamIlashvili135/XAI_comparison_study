@@ -1,15 +1,18 @@
 """
 combined_examples.py
-Creates one combined PNG per pathology showing, side by side:
+Creates five combined PNGs per pathology showing, side by side:
   Original X-ray | Grad-CAM | LIME | SHAP
-with the ground-truth bounding box drawn on all three XAI panels.
+with the ground-truth bounding box drawn on all panels.
 
-This reuses the same image (and same ground-truth box) across all four
-panels so the comparison is apples-to-apples — same patient, same box,
-three different explanations.
+Images are selected by computing (gradcam_iou + lime_iou + shap_iou) / 3
+for every image that appears in all three existing metrics CSVs, then taking
+the 5 images with the highest average IoU per pathology.
 
 Outputs:
-  results/combined_examples/<Pathology>_combined.png   (one per pathology, 8 total)
+  results/combined_examples/<Pathology>_top1_combined.png
+  ...
+  results/combined_examples/<Pathology>_top5_combined.png
+  (40 PNGs total — 5 per pathology x 8 pathologies)
 
 Run (from D:\\thesis\\src\\xai):
     python combined_examples.py
@@ -45,6 +48,7 @@ OUT_DIR      = RESULTS_DIR / "combined_examples"
 LIME_SAMPLES = 1000
 SHAP_BG_SIZE = 20
 IoU_THRESHOLD = 0.15
+TOP_N        = 5   # images selected per pathology
 # ===========================================================================
 
 BOXED_PATHOLOGIES = [
@@ -91,7 +95,6 @@ def get_box(row, orig_w, orig_h, target=224):
 
 
 def draw_box(img_array, x1, y1, x2, y2, color=(255, 255, 0)):
-    """Draw a yellow rectangle outline on a copy of the image array."""
     out = img_array.copy()
     out[y1:y2, x1:x1+2] = color
     out[y1:y2, x2:x2+2] = color
@@ -125,16 +128,21 @@ def run_lime(model, device, pil_224, class_idx, x1, y1, x2, y2):
         return probs
 
     explainer = lime_image.LimeImageExplainer(random_state=42)
-    img_float = np.array(pil_224).astype(np.float64) / 255.0
+    img_rgb = np.array(pil_224)                        # uint8 (224,224,3)
+    img_float = img_rgb.astype(np.float64) / 255.0
     explanation = explainer.explain_instance(
         img_float, predict_fn, top_labels=len(PATHOLOGIES),
         hide_color=0, num_samples=LIME_SAMPLES, random_seed=42)
 
     if class_idx in explanation.local_exp:
-        temp, mask = explanation.get_image_and_mask(
+        _, mask = explanation.get_image_and_mask(
             class_idx, positive_only=True, num_features=10, hide_rest=False)
-        overlay = mark_boundaries(temp / 255.0, mask)
-        overlay = (overlay * 255).astype(np.uint8)
+        # Green-blend positive superpixels onto original image, same as lime_exp.py
+        base = img_rgb.astype(np.float32) / 255.0
+        highlighted = base.copy()
+        highlighted[mask == 1] = highlighted[mask == 1] * 0.5 + np.array([0, 0.8, 0]) * 0.5
+        overlay_f = mark_boundaries(highlighted, mask)
+        overlay = (np.clip(overlay_f, 0, 1) * 255).astype(np.uint8)
     else:
         overlay = np.array(pil_224)
     overlay = draw_box(overlay, x1, y1, x2, y2)
@@ -148,8 +156,11 @@ def run_shap(model, device, background, tensor, class_idx, pil_224, x1, y1, x2, 
                                target=class_idx, n_samples=10, stdevs=0.09)
     attr_map = np.abs(attr[0].detach().cpu().numpy()).mean(axis=0)
     attr_map = (attr_map - attr_map.min()) / (attr_map.max() - attr_map.min() + 1e-8)
-    overlay = plt.cm.RdBu_r(attr_map)[:, :, :3]
-    overlay = (overlay * 255).astype(np.uint8)
+    # Blend SHAP heatmap with original X-ray so anatomy stays visible, same as shap_exp.py
+    img_float = np.array(pil_224).astype(np.float32) / 255.0
+    heatmap = plt.cm.RdBu_r(attr_map)[:, :, :3]
+    blended = np.clip(img_float * 0.5 + heatmap * 0.5, 0, 1)
+    overlay = (blended * 255).astype(np.uint8)
     overlay = draw_box(overlay, x1, y1, x2, y2)
     return overlay
 
@@ -163,7 +174,8 @@ def build_background(bbox_df, image_index, device, n=20):
     return torch.stack(tensors).to(device)
 
 
-def make_combined_figure(original, gradcam_img, lime_img, shap_img, pathology, out_path):
+def make_combined_figure(original, gradcam_img, lime_img, shap_img,
+                         pathology, out_path, subtitle=""):
     fig, axes = plt.subplots(1, 4, figsize=(16, 4.5))
     panels = [
         (original,    "Original X-ray"),
@@ -175,12 +187,29 @@ def make_combined_figure(original, gradcam_img, lime_img, shap_img, pathology, o
         ax.imshow(img)
         ax.set_title(title, fontsize=13, fontweight="bold")
         ax.axis("off")
-    fig.suptitle(f"{pathology} — XAI Method Comparison (yellow = ground-truth box)",
-                 fontsize=15, fontweight="bold", y=1.02)
+    suptitle = f"{pathology} — XAI Method Comparison (yellow = ground-truth box)"
+    if subtitle:
+        suptitle += f"\n{subtitle}"
+    fig.suptitle(suptitle, fontsize=13, fontweight="bold", y=1.02)
     plt.tight_layout()
     plt.savefig(out_path, dpi=160, bbox_inches="tight")
     plt.close()
-    print(f"Saved -> {out_path}")
+    print(f"    Saved -> {out_path}")
+
+
+def load_avg_iou_ranking():
+    """
+    Join the three pre-computed metrics CSVs and compute per-image average IoU.
+    Returns a DataFrame with columns: image, pathology, gradcam_iou, lime_iou,
+    shap_iou, avg_iou — one row per image that appears in all three CSVs.
+    """
+    gc   = pd.read_csv(RESULTS_DIR / "gradcam_metrics.csv")[["image", "pathology", "iou"]].rename(columns={"iou": "gradcam_iou"})
+    lime = pd.read_csv(RESULTS_DIR / "lime_metrics.csv")[["image", "pathology", "iou"]].rename(columns={"iou": "lime_iou"})
+    shap = pd.read_csv(RESULTS_DIR / "shap_metrics.csv")[["image", "pathology", "iou"]].rename(columns={"iou": "shap_iou"})
+
+    merged = gc.merge(lime, on=["image", "pathology"]).merge(shap, on=["image", "pathology"])
+    merged["avg_iou"] = (merged["gradcam_iou"] + merged["lime_iou"] + merged["shap_iou"]) / 3.0
+    return merged
 
 
 def main():
@@ -189,51 +218,77 @@ def main():
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
+    # ── Load pre-computed IoU scores and rank images ─────────────────────────
+    print("Loading metrics CSVs...")
+    ranking = load_avg_iou_ranking()
+    print(f"  images in all three metrics: {len(ranking)}")
+
+    # ── Index images on disk ─────────────────────────────────────────────────
     print("Indexing images...")
     image_index = build_image_index(DATA_ROOT)
     print(f"  found {len(image_index)} PNG files")
+    ranking = ranking[ranking["image"].isin(image_index.keys())]
 
     model = load_model(CKPT_PATH, device)
+
     bbox_df = load_bbox_df(DATA_ROOT)
     bbox_df = bbox_df[bbox_df["Image Index"].isin(image_index.keys())]
 
     print("Building SHAP background...")
     background = build_background(bbox_df, image_index, device, SHAP_BG_SIZE)
 
-    # Pick ONE representative image per pathology — the first one in the bbox list
+    # ── Per pathology: select top-N by average IoU and generate figures ───────
     for pathology in BOXED_PATHOLOGIES:
-        subset = bbox_df[bbox_df["Finding Label"] == pathology]
+        subset = ranking[ranking["pathology"] == pathology]
         if len(subset) == 0:
-            print(f"  skipping {pathology} — no bbox records found")
+            print(f"\nSkipping {pathology} — no records in merged metrics")
             continue
-        row = subset.iloc[0]
-        fname = row["Image Index"]
+
+        top_n = subset.nlargest(TOP_N, "avg_iou").reset_index(drop=True)
+
+        print(f"\n{pathology} — top-{TOP_N} images by avg IoU:")
+        for _, r in top_n.iterrows():
+            print(f"  {r['image']}  avg={r['avg_iou']:.4f}  "
+                  f"(GC={r['gradcam_iou']:.3f}  LIME={r['lime_iou']:.3f}  SHAP={r['shap_iou']:.3f})")
+
         class_idx = PATHOLOGIES.index(pathology)
 
-        print(f"\nProcessing {pathology} ({fname})...")
-        pil_img = Image.open(image_index[fname]).convert("RGB")
-        orig_w, orig_h = pil_img.size
-        pil_224 = pil_img.resize((224, 224))
-        tensor = TRANSFORM(pil_img).unsqueeze(0).to(device)
-        x1, y1, x2, y2 = get_box(row, orig_w, orig_h)
+        for rank, (_, rec) in enumerate(top_n.iterrows(), start=1):
+            fname = rec["image"]
 
-        img_rgb_float = np.array(pil_224).astype(np.float32) / 255.0
-        original_with_box = draw_box(np.array(pil_224), x1, y1, x2, y2)
+            box_rows = bbox_df[(bbox_df["Image Index"] == fname) &
+                               (bbox_df["Finding Label"] == pathology)]
+            if len(box_rows) == 0:
+                print(f"  WARNING: no bbox row for {fname}, skipping rank {rank}")
+                continue
+            box_row = box_rows.iloc[0]
 
-        print("  running Grad-CAM...")
-        gradcam_img = run_gradcam(model, tensor, class_idx, img_rgb_float, x1, y1, x2, y2)
+            print(f"  [{rank}/{TOP_N}] {fname}  avg_iou={rec['avg_iou']:.4f}")
+            pil_img = Image.open(image_index[fname]).convert("RGB")
+            orig_w, orig_h = pil_img.size
+            pil_224 = pil_img.resize((224, 224))
+            tensor = TRANSFORM(pil_img).unsqueeze(0).to(device)
+            x1, y1, x2, y2 = get_box(box_row, orig_w, orig_h)
 
-        print("  running LIME (slowest step)...")
-        lime_img = run_lime(model, device, pil_224, class_idx, x1, y1, x2, y2)
+            img_rgb_float = np.array(pil_224).astype(np.float32) / 255.0
+            original_with_box = draw_box(np.array(pil_224), x1, y1, x2, y2)
 
-        print("  running SHAP...")
-        shap_img = run_shap(model, device, background, tensor, class_idx, pil_224, x1, y1, x2, y2)
+            print("    running Grad-CAM...")
+            gradcam_img = run_gradcam(model, tensor, class_idx, img_rgb_float, x1, y1, x2, y2)
 
-        out_path = OUT_DIR / f"{pathology}_combined.png"
-        make_combined_figure(original_with_box, gradcam_img, lime_img, shap_img,
-                             pathology, out_path)
+            print("    running LIME (slowest step)...")
+            lime_img = run_lime(model, device, pil_224, class_idx, x1, y1, x2, y2)
 
-    print("\nAll combined comparison images saved to", OUT_DIR)
+            print("    running SHAP...")
+            shap_img = run_shap(model, device, background, tensor, class_idx, pil_224, x1, y1, x2, y2)
+
+            subtitle = (f"avg IoU={rec['avg_iou']:.3f}  "
+                        f"(GC={rec['gradcam_iou']:.3f}  LIME={rec['lime_iou']:.3f}  SHAP={rec['shap_iou']:.3f})")
+            out_path = OUT_DIR / f"{pathology}_top{rank}_combined.png"
+            make_combined_figure(original_with_box, gradcam_img, lime_img, shap_img,
+                                 pathology, out_path, subtitle=subtitle)
+
+    print(f"\nAll {TOP_N * len(BOXED_PATHOLOGIES)} combined figures saved to {OUT_DIR}")
 
 
 if __name__ == "__main__":
