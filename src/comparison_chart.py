@@ -31,9 +31,9 @@ PATHOLOGIES = [
 
 # Colors for the three methods — colorblind-friendly palette
 COLORS = {
-    "Grad-CAM": "#2196F3",   # blue
-    "LIME":     "#FF9800",   # orange
-    "SHAP":     "#4CAF50",   # green
+    "Grad-CAM":     "#2196F3",   # blue
+    "LIME":         "#FF9800",   # orange
+    "GradientSHAP": "#4CAF50",   # green
 }
 
 
@@ -41,9 +41,9 @@ def load_summaries():
     """Load the three summary CSVs and extract per-pathology rows only."""
     summaries = {}
     files = {
-        "Grad-CAM": RESULTS_DIR / "gradcam_summary.csv",
-        "LIME":     RESULTS_DIR / "lime_summary.csv",
-        "SHAP":     RESULTS_DIR / "shap_summary.csv",
+        "Grad-CAM":     RESULTS_DIR / "gradcam_summary.csv",
+        "LIME":         RESULTS_DIR / "lime_summary.csv",
+        "GradientSHAP": RESULTS_DIR / "shap_summary.csv",
     }
     for method, path in files.items():
         df = pd.read_csv(path, index_col=0)

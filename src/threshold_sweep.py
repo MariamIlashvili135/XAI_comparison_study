@@ -55,9 +55,9 @@ TRANSFORM = transforms.Compose([
 ])
 
 COLORS = {
-    "Grad-CAM": "#2196F3",
-    "LIME":     "#FF9800",
-    "SHAP":     "#4CAF50",
+    "Grad-CAM":     "#2196F3",
+    "LIME":         "#FF9800",
+    "GradientSHAP": "#4CAF50",
 }
 
 
@@ -224,7 +224,7 @@ def plot_sweep(results_dict, thresholds, out_path):
                label="Default threshold (0.15)")
     ax.set_xlabel("IoU Threshold (top-X% of activation)", fontsize=11)
     ax.set_ylabel("Mean IoU", fontsize=11)
-    ax.set_title("IoU Threshold Sensitivity — Grad-CAM vs LIME vs SHAP",
+    ax.set_title("IoU Threshold Sensitivity — Grad-CAM vs LIME vs GradientSHAP",
                  fontsize=12, fontweight="bold")
     ax.set_xticks(thresholds)
     ax.set_xticklabels([f"{int(t*100)}%" for t in thresholds])
@@ -276,9 +276,9 @@ def main():
     print("[DEBUG] SHAP sample:", shap_maps[0] if len(shap_maps) > 0 else "EMPTY")
     print("[DEBUG] LIME sample:", lime_maps[0] if len(lime_maps) > 0 else "EMPTY")
     results = {
-        "Grad-CAM": sweep_thresholds(gradcam_maps, THRESHOLDS),
-        "LIME":     sweep_thresholds(lime_maps,     THRESHOLDS),
-        "SHAP":     sweep_thresholds(shap_maps,     THRESHOLDS),
+        "Grad-CAM":     sweep_thresholds(gradcam_maps, THRESHOLDS),
+        "LIME":         sweep_thresholds(lime_maps,     THRESHOLDS),
+        "GradientSHAP": sweep_thresholds(shap_maps,    THRESHOLDS),
     }
 
     # Save CSV
